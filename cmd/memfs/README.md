@@ -37,5 +37,6 @@ it gets around
 Shutdown:
 ```console
 % umount /tmp/mem
+% rmdir /tmp/mem
 ```
 

@@ -17,7 +17,7 @@ import (
 	"bazil.org/fuse/fs"
 )
 
-type FS struct{}
+type FileSystem struct{}
 
 type Node interface {
 	fs.Node
@@ -87,7 +87,7 @@ func main() {
 	}()
 
 	// blocks until spontaneous or signalled unmount
-	err = fs.Serve(c, FS{})
+	err = fs.Serve(c, FileSystem{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func main() {
 	}
 }
 
-func (FS) Root() (fs.Node, error) {
+func (FileSystem) Root() (fs.Node, error) {
 	return root, nil
 }
 
@@ -148,7 +148,7 @@ func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	}
 	child := newDir(req.Mode)
 	d.children[req.Name] = child
-	d.Mtime = time.Now()
+	d.modified()
 	return child, nil
 }
 
@@ -158,7 +158,7 @@ func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 
 	child := newFile(req.Mode)
 	d.children[req.Name] = child
-	d.Mtime = time.Now()
+	d.modified()
 	return child, child, nil
 }
 
@@ -168,7 +168,7 @@ func (d *Dir) Link(ctx context.Context, req *fuse.LinkRequest, old fs.Node) (fs.
 
 	if old, ok := old.(*File); ok {
 		d.children[req.NewName] = old
-		d.Mtime = time.Now()
+		d.modified()
 	}
 	return old, nil
 }
@@ -179,7 +179,7 @@ func (d *Dir) Symlink(ctx context.Context, req *fuse.SymlinkRequest) (fs.Node, e
 
 	link := newSymlink(req.Target)
 	d.children[req.NewName] = link
-	d.Mtime = time.Now()
+	d.modified()
 	return link, nil
 }
 
@@ -194,7 +194,7 @@ func (d *Dir) Remove(ctx context.Context, req *fuse.RemoveRequest) error {
 		}
 	}
 	delete(d.children, req.Name)
-	d.Mtime = time.Now()
+	d.modified()
 	return nil
 }
 
@@ -205,9 +205,9 @@ func (d *Dir) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Nod
 	if destDir, ok := newDir.(*Dir); ok {
 		target := d.children[req.OldName]
 		delete(d.children, req.OldName)
-		d.Mtime = time.Now()
+		d.modified()
 		destDir.children[req.NewName] = target
-		destDir.Mtime = time.Now()
+		destDir.modified()
 		return nil
 	}
 	return fuse.ENOENT
@@ -286,7 +286,7 @@ func (f *File) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 	}
 
 	resp.Size = len(req.Data)
-	f.Mtime = time.Now()
+	f.modified()
 	return nil
 }
 
@@ -348,7 +348,6 @@ func (l *Symlink) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (stri
 	return l.target, nil
 }
 
-//func newNode(mode os.FileMode) attr {
 func newNode(mode os.FileMode) attr {
 	// caller locks
 	lastInode++
@@ -359,6 +358,10 @@ func newNode(mode os.FileMode) attr {
 		Ctime: now,
 		Mtime: now,
 	}
+}
+
+func (a *attr) modified() {
+	a.Mtime = time.Now()
 }
 
 func newDir(mode os.FileMode) *Dir {

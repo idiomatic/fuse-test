@@ -22,7 +22,6 @@ func Usage() {
 func main() {
 	flag.Usage = Usage
 	flag.Parse()
-
 	if flag.NArg() != 1 {
 		Usage()
 		os.Exit(2)
@@ -45,8 +44,10 @@ func main() {
 		sigs := make(chan os.Signal, 1)
 		// "go run" and "killall -INT go" promotes these signals to uncatchable signals
 		signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-		<-sigs
-		fuse.Unmount(mountpoint)
+		for {
+			<-sigs
+			fuse.Unmount(mountpoint)
+		}
 	}()
 
 	log.Println("serving")

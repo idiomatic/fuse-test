@@ -28,5 +28,6 @@ hello from fuse
 Shutdown:
 ```console
 % umount /tmp/hello
+% rmdir /tmp/hello
 ```
 

@@ -22,7 +22,6 @@ func Usage() {
 func main() {
 	flag.Usage = Usage
 	flag.Parse()
-
 	if flag.NArg() != 1 {
 		Usage()
 		os.Exit(2)
@@ -44,8 +43,10 @@ func main() {
 	go func() {
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
-		<-sigs
-		fuse.Unmount(mountpoint)
+		for {
+			<-sigs
+			fuse.Unmount(mountpoint)
+		}
 	}()
 
 	err = fs.Serve(c, FS{})
